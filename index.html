@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Govt Orders & Circulars Archive</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Alpine.js for reactive UI logic -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        gold: {
+                            500: '#d97706',
+                            600: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar styling for list view */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased h-screen flex flex-col overflow-hidden" 
+      x-data="archiveApp()" 
+      x-init="initApp()">
+
+    <!-- TOP HEADER -->
+    <header class="bg-navy-900 text-white shadow-md z-20 flex-shrink-0">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-gold-500 text-slate-900 p-2.5 rounded-lg font-bold text-xl flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-landmark"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Govt Orders & Circulars Archive
+                        <span class="text-xs bg-gold-500/20 text-gold-500 border border-gold-500/30 px-2 py-0.5 rounded-full font-medium hidden sm:inline-block">Kerala / India</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Official Repository for Administrative Orders, Notifications & Circulars</p>
+                </div>
+            </div>
+
+            <!-- Header Action Buttons -->
+            <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+                <button @click="showSetupGuide = true" 
+                        class="text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-slate-700">
+                    <i class="fa-brands fa-google-drive text-emerald-400"></i>
+                    <span class="hidden sm:inline">Drive Integration Guide</span>
+                </button>
+                <button @click="showAddModal = true" 
+                        class="text-xs sm:text-sm bg-gold-500 hover:bg-gold-600 text-slate-950 font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Add Order / Circular</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- SEARCH & FILTER BAR -->
+        <div class="bg-navy-800 border-t border-slate-700/60 px-4 sm:px-6 py-2.5">
+            <div class="max-w-full mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+                
+                <!-- Instant Search Input -->
+                <div class="relative w-full md:w-96">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <input type="text" 
+                           x-model="searchQuery" 
+                           @input="filterDocs()"
+                           placeholder="Type to search (G.O No, Title, Dept, Keyword)..." 
+                           class="w-full pl-9 pr-8 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-transparent transition">
+                    <button x-show="searchQuery.length > 0" 
+                            @click="searchQuery = ''; filterDocs()" 
+                            class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Filters & Sorting -->
+                <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+                    <!-- Category Dropdown / Pills -->
+                    <div class="flex items-center space-x-1 bg-slate-900/60 p-1 rounded-lg border border-slate-700/60 text-xs">
+                        <template x-for="cat in categories" :key="cat">
+                            <button @click="selectedCategory = cat; filterDocs()"
+                                    :class="selectedCategory === cat ? 'bg-gold-500 text-slate-950 font-medium' : 'text-slate-300 hover:text-white hover:bg-slate-800'"
+                                    class="px-2.5 py-1 rounded transition whitespace-nowrap"
+                                    x-text="cat">
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Type Filter -->
+                    <select x-model="selectedType" @change="filterDocs()" 
+                            class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold-500">
+                        <option value="All">All Types</option>
+                        <option value="GO">Government Orders (G.O.)</option>
+                        <option value="Circular">Circulars</option>
+                        <option value="Notification">Notifications</option>
+                    </select>
+
+                    <!-- Sort Option -->
+                    <select x-model="sortBy" @change="filterDocs()" 
+                            class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold-500">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="title-asc">Title (A-Z)</option>
+                        <option value="number-asc">Order No.</option>
+                    </select>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN MAIN SPLIT VIEW CONTENT AREA -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- LEFT SIDEBAR: DOCUMENT LIST -->
+        <div :class="selectedDoc && isMobileView ? 'hidden' : 'flex'" 
+             class="w-full md:w-5/12 lg:w-4/12 border-r border-slate-200 bg-white flex-col h-full z-10">
+            
+            <!-- List Header Stats -->
+            <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Showing <strong class="text-slate-800" x-text="filteredDocs.length"></strong> of <strong class="text-slate-800" x-text="documents.length"></strong> items</span>
+                <span x-show="searchQuery" class="text-gold-600 font-semibold truncate max-w-[150px]">Filtered by search</span>
+            </div>
+
+            <!-- Documents List Container -->
+            <div class="flex-1 overflow-y-auto divide-y divide-slate-100">
+                
+                <!-- Empty State -->
+                <div x-show="filteredDocs.length === 0" class="p-8 text-center text-slate-400">
+                    <i class="fa-solid fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                    <p class="font-medium text-slate-600">No documents found</p>
+                    <p class="text-xs text-slate-400 mt-1">Try tweaking your search term or filters.</p>
+                    <button @click="resetFilters()" class="mt-4 text-xs text-gold-600 font-semibold hover:underline">Reset All Filters</button>
+                </div>
+
+                <!-- Document Card Items -->
+                <template x-for="doc in filteredDocs" :key="doc.id">
+                    <div @click="selectDocument(doc)" 
+                         :class="selectedDoc && selectedDoc.id === doc.id ? 'bg-amber-50/70 border-l-4 border-gold-500' : 'hover:bg-slate-50 border-l-4 border-transparent'"
+                         class="p-3.5 cursor-pointer transition flex flex-col gap-1.5 relative group">
+                        
+                        <!-- Top Metadata Row -->
+                        <div class="flex items-center justify-between text-xs gap-2">
+                            <span :class="doc.type === 'GO' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'" 
+                                  class="px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]"
+                                  x-text="doc.type"></span>
+                            <span class="text-slate-500 text-[11px] font-mono" x-text="doc.date"></span>
+                        </div>
+
+                        <!-- G.O Number / Title -->
+                        <h3 class="text-sm font-semibold text-slate-900 group-hover:text-gold-600 transition leading-snug" x-text="doc.title"></h3>
+                        <p class="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded w-fit" x-text="doc.number"></p>
+
+                        <!-- Dept Tag & Keywords -->
+                        <div class="flex items-center justify-between mt-1 pt-1 border-t border-slate-100 text-[11px]">
+                            <span class="text-slate-500 font-medium flex items-center gap-1">
+                                <i class="fa-regular fa-building text-slate-400"></i>
+                                <span x-text="doc.department"></span>
+                            </span>
+                            <div class="flex items-center gap-1">
+                                <button @click.stop="deleteDocument(doc.id)" class="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition" title="Delete record">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                                <span class="text-slate-400 font-mono" x-text="doc.fileSize || 'PDF'"></span>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR: PDF VIEWER CONTAINER -->
+        <div :class="selectedDoc || !isMobileView ? 'flex' : 'hidden md:flex'" 
+             class="w-full md:w-7/12 lg:w-8/12 bg-slate-200 flex-col h-full relative">
+            
+            <template x-if="selectedDoc">
+                <div class="flex flex-col h-full w-full">
+                    <!-- Viewer Header Toolbar -->
+                    <div class="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between gap-3 flex-shrink-0 shadow-sm">
+                        <!-- Left Action: Mobile Back + Title -->
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <button @click="selectedDoc = null" class="md:hidden text-slate-600 hover:text-slate-900 p-1.5 rounded-lg bg-slate-100">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <div class="truncate">
+                                <h2 class="text-xs sm:text-sm font-bold text-slate-800 truncate" x-text="selectedDoc.title"></h2>
+                                <p class="text-[11px] font-mono text-slate-500 truncate" x-text="selectedDoc.number + ' | Dated: ' + selectedDoc.date"></p>
+                            </div>
+                        </div>
+
+                        <!-- Right Actions: Drive Links, Download, Fullscreen -->
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            <!-- External Drive Link -->
+                            <a :href="selectedDoc.driveUrl || getDriveDirectLink(selectedDoc.driveId)" target="_blank" 
+                               class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded font-medium flex items-center gap-1 transition"
+                               title="Open in Google Drive">
+                                <i class="fa-brands fa-google-drive text-emerald-600"></i>
+                                <span class="hidden sm:inline">Google Drive</span>
+                            </a>
+
+                            <!-- Direct Download -->
+                            <a :href="getDriveDownloadLink(selectedDoc.driveId)" target="_blank" 
+                               class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded font-medium flex items-center gap-1 transition"
+                               title="Download File">
+                                <i class="fa-solid fa-download text-blue-600"></i>
+                                <span class="hidden sm:inline">Download</span>
+                            </a>
+
+                            <!-- Popout Fullscreen Viewer -->
+                            <a :href="getEmbedUrl(selectedDoc.driveId, selectedDoc.driveUrl)" target="_blank" 
+                               class="text-xs bg-gold-500 hover:bg-gold-600 text-slate-950 px-2.5 py-1.5 rounded font-medium flex items-center gap-1 transition shadow-sm"
+                               title="Open viewer in new tab">
+                                <i class="fa-solid fa-up-right-from-square"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- PDF iFrame Frame Container -->
+                    <div class="flex-1 bg-slate-800 relative">
+                        <!-- Loading State Overlay -->
+                        <div x-show="iframeLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 text-white z-10">
+                            <i class="fa-solid fa-circle-notch fa-spin text-3xl text-gold-500 mb-2"></i>
+                            <p class="text-xs text-slate-300">Loading Google Drive Preview...</p>
+                        </div>
+
+                        <!-- Embedded Drive Iframe -->
+                        <iframe :src="getEmbedUrl(selectedDoc.driveId, selectedDoc.driveUrl)" 
+                                class="w-full h-full border-0" 
+                                @load="iframeLoading = false"
+                                allow="autoplay">
+                        </iframe>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Unselected State -->
+            <template x-if="!selectedDoc">
+                <div class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-slate-100">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-sm flex flex-col items-center">
+                        <div class="w-16 h-16 bg-amber-50 text-gold-500 rounded-full flex items-center justify-center text-2xl mb-4">
+                            <i class="fa-regular fa-file-pdf"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-slate-800">No Document Selected</h3>
+                        <p class="text-xs text-slate-500 mt-1">Select a Government Order or Circular from the sidebar to preview its official PDF document.</p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+    </main>
+
+    <!-- MODAL 1: ADD NEW DOCUMENT MODAL -->
+    <div x-show="showAddModal" 
+         x-cloak 
+         class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.away="showAddModal = false" class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            
+            <div class="bg-navy-900 text-white px-5 py-3.5 flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-circle-plus text-gold-500"></i>
+                    Add New Government Order / Circular
+                </h3>
+                <button @click="showAddModal = false" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form @submit.prevent="addNewDocument()" class="p-5 overflow-y-auto space-y-4 text-xs">
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Document Type *</label>
+                        <select x-model="newDoc.type" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none">
+                            <option value="GO">Government Order (G.O.)</option>
+                            <option value="Circular">Circular</option>
+                            <option value="Notification">Notification</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Date *</label>
+                        <input type="date" x-model="newDoc.date" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Order / Circular Number *</label>
+                    <input type="text" x-model="newDoc.number" required placeholder="e.g. G.O.(P) No. 45/2026/Fin" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none font-mono">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Document Title / Subject *</label>
+                    <textarea x-model="newDoc.title" required rows="2" placeholder="Brief subject/title of the order..." class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Department *</label>
+                        <select x-model="newDoc.department" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none">
+                            <option value="Finance Dept">Finance Dept</option>
+                            <option value="Revenue Dept">Revenue Dept</option>
+                            <option value="General Admin">General Admin</option>
+                            <option value="Personnel & Admin">Personnel & Admin</option>
+                            <option value="Education Dept">Education Dept</option>
+                            <option value="Health Dept">Health Dept</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Category / Tag</label>
+                        <input type="text" x-model="newDoc.category" placeholder="e.g. Leave Rules, Pay Revision" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Google Drive URL or File ID -->
+                <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    <label class="block font-semibold text-slate-800 mb-1 flex items-center justify-between">
+                        <span>Google Drive Link or File ID *</span>
+                        <span class="text-[10px] text-amber-700 font-normal">Must be set to "Anyone with link"</span>
+                    </label>
+                    <input type="text" x-model="newDoc.driveInput" required 
+                           placeholder="Paste Drive Share Link OR File ID (e.g., 1A2b3C4d...)" 
+                           class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-gold-500 focus:outline-none font-mono text-xs">
+                    <p class="text-[11px] text-slate-500 mt-1">Paste the full Google Drive view link or just the extracted File ID.</p>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t">
+                    <button type="button" @click="showAddModal = false" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-100 font-medium">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold rounded-lg shadow">Save Document</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- MODAL 2: GOOGLE DRIVE SETUP GUIDE MODAL -->
+    <div x-show="showSetupGuide" 
+         x-cloak 
+         class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div @click.away="showSetupGuide = false" class="bg-white rounded-xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-200">
+            <div class="bg-navy-900 text-white px-5 py-3.5 flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-brands fa-google-drive text-emerald-400"></i>
+                    How to Link Google Drive PDF Documents
+                </h3>
+                <button @click="showSetupGuide = false" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-5 text-xs text-slate-600 space-y-4">
+                <p class="leading-relaxed">This archive uses Google Drive as its cloud file store. Follow these 3 steps to add your PDFs:</p>
+                
+                <ol class="list-decimal list-inside space-y-2.5 font-medium text-slate-700 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <li class="leading-normal">
+                        <strong class="text-slate-900">Upload PDF to Google Drive:</strong> Upload your Government Order PDF to your personal or department Drive account.
+                    </li>
+                    <li class="leading-normal">
+                        <strong class="text-slate-900">Make Link Public:</strong> Right-click the file &rarr; <em>Share</em> &rarr; Change Access from <em>"Restricted"</em> to <strong class="text-emerald-700">"Anyone with the link can view"</strong>.
+                    </li>
+                    <li class="leading-normal">
+                        <strong class="text-slate-900">Copy & Paste URL:</strong> Copy the share link and paste it into the <em>"Add Order / Circular"</em> form on this website.
+                    </li>
+                </ol>
+
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg text-blue-900 space-y-1">
+                    <span class="font-bold flex items-center gap-1 text-xs">
+                        <i class="fa-solid fa-circle-info"></i> Extracting Google Drive File IDs
+                    </span>
+                    <p class="text-[11px]">If you paste a link like <code class="bg-blue-100 px-1 py-0.5 rounded text-blue-800">https://drive.google.com/file/d/1ABC123xyz/view</code>, the application automatically extracts ID <code class="font-mono font-bold">1ABC123xyz</code> to build the embedded viewer!</p>
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                    <button @click="showSetupGuide = false" class="px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white font-medium rounded-lg">Got It</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC -->
+    <script>
+        function archiveApp() {
+            return {
+                searchQuery: '',
+                selectedCategory: 'All',
+                selectedType: 'All',
+                sortBy: 'date-desc',
+                selectedDoc: null,
+                iframeLoading: true,
+                showAddModal: false,
+                showSetupGuide: false,
+                isMobileView: window.innerWidth < 768,
+
+                categories: ['All', 'Finance Dept', 'Revenue Dept', 'General Admin', 'Personnel & Admin', 'Education Dept'],
+
+                // Sample pre-populated Government Orders / Circulars
+                documents: [
+                    {
+                        id: 'go-101',
+                        type: 'GO',
+                        number: 'G.O.(P) No. 12/2026/Fin',
+                        title: 'Grant of Dearness Allowance (DA) to State Government Employees & Pensioners - Orders Issued',
+                        date: '2026-03-15',
+                        department: 'Finance Dept',
+                        category: 'Pay & DA',
+                        fileSize: '420 KB',
+                        // Sample public PDF Google Drive File ID
+                        driveId: '1L3-2g6KzQpWJ_2K9Vpxz2rP78O7O-f8b'
+                    },
+                    {
+                        id: 'go-102',
+                        type: 'Circular',
+                        number: 'Circular No. Rev-B1/45/2026',
+                        title: 'Guidelines for Digital Re-survey and Land Record Updates in Taluk Offices',
+                        date: '2026-02-28',
+                        department: 'Revenue Dept',
+                        category: 'Land Records',
+                        fileSize: '1.2 MB',
+                        driveId: '1L3-2g6KzQpWJ_2K9Vpxz2rP78O7O-f8b'
+                    },
+                    {
+                        id: 'go-103',
+                        type: 'GO',
+                        number: 'G.O.(Rt) No. 340/2026/GAD',
+                        title: 'Declaration of Local Holidays for Public Sector Undertakings & Educational Institutions',
+                        date: '2026-01-10',
+                        department: 'General Admin',
+                        category: 'Holidays',
+                        fileSize: '280 KB',
+                        driveId: '1L3-2g6KzQpWJ_2K9Vpxz2rP78O7O-f8b'
+                    },
+                    {
+                        id: 'go-104',
+                        type: 'Notification',
+                        number: 'P&ARD-1029/2025/Rules',
+                        title: 'Special Rules Amendment - Eligibility Criteria for Selection Grade Typist Cadre',
+                        date: '2025-11-20',
+                        department: 'Personnel & Admin',
+                        category: 'Service Rules',
+                        fileSize: '650 KB',
+                        driveId: '1L3-2g6KzQpWJ_2K9Vpxz2rP78O7O-f8b'
+                    }
+                ],
+
+                filteredDocs: [],
+
+                newDoc: {
+                    type: 'GO',
+                    number: '',
+                    title: '',
+                    date: new Date().toISOString().split('T')[0],
+                    department: 'Finance Dept',
+                    category: '',
+                    driveInput: ''
+                },
+
+                initApp() {
+                    // Check window resize
+                    window.addEventListener('resize', () => {
+                        this.isMobileView = window.innerWidth < 768;
+                    });
+
+                    // Load from localStorage if present
+                    const localData = localStorage.getItem('govt_orders_archive');
+                    if (localData) {
+                        try {
+                            this.documents = JSON.parse(localData);
+                        } catch(e) {
+                            console.error('Failed to parse localStorage data');
+                        }
+                    }
+
+                    this.filterDocs();
+
+                    // Select first doc by default on desktop
+                    if (!this.isMobileView && this.filteredDocs.length > 0) {
+                        this.selectDocument(this.filteredDocs[0]);
+                    }
+                },
+
+                filterDocs() {
+                    const q = this.searchQuery.toLowerCase().trim();
+
+                    this.filteredDocs = this.documents.filter(doc => {
+                        // Category Filter
+                        if (this.selectedCategory !== 'All' && doc.department !== this.selectedCategory) {
+                            return false;
+                        }
+
+                        // Type Filter
+                        if (this.selectedType !== 'All' && doc.type !== this.selectedType) {
+                            return false;
+                        }
+
+                        // Live Instant Search Filter
+                        if (q) {
+                            const matchTitle = doc.title.toLowerCase().includes(q);
+                            const matchNumber = doc.number.toLowerCase().includes(q);
+                            const matchDept = doc.department.toLowerCase().includes(q);
+                            const matchCategory = (doc.category || '').toLowerCase().includes(q);
+
+                            return matchTitle || matchNumber || matchDept || matchCategory;
+                        }
+
+                        return true;
+                    });
+
+                    // Apply Sorting
+                    this.filteredDocs.sort((a, b) => {
+                        if (this.sortBy === 'date-desc') {
+                            return new Date(b.date) - new Date(a.date);
+                        } else if (this.sortBy === 'date-asc') {
+                            return new Date(a.date) - new Date(b.date);
+                        } else if (this.sortBy === 'title-asc') {
+                            return a.title.localeCompare(b.title);
+                        } else if (this.sortBy === 'number-asc') {
+                            return a.number.localeCompare(b.number);
+                        }
+                    });
+                },
+
+                selectDocument(doc) {
+                    this.selectedDoc = doc;
+                    this.iframeLoading = true;
+                },
+
+                extractDriveId(input) {
+                    if (!input) return '';
+                    // Match drive file ID patterns
+                    const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/) || input.match(/id=([a-zA-Z0-9_-]+)/);
+                    if (match && match[1]) {
+                        return match[1];
+                    }
+                    // If no match, assume raw ID string was passed
+                    return input.trim();
+                },
+
+                getEmbedUrl(driveId, driveUrl) {
+                    const id = driveId || this.extractDriveId(driveUrl);
+                    if (id) {
+                        return `https://drive.google.com/file/d/${id}/preview`;
+                    }
+                    return 'about:blank';
+                },
+
+                getDriveDirectLink(driveId) {
+                    return `https://drive.google.com/file/d/${driveId}/view?usp=sharing`;
+                },
+
+                getDriveDownloadLink(driveId) {
+                    return `https://drive.google.com/uc?export=download&id=${driveId}`;
+                },
+
+                addNewDocument() {
+                    const extractedId = this.extractDriveId(this.newDoc.driveInput);
+                    
+                    if (!extractedId) {
+                        alert('Please provide a valid Google Drive link or File ID.');
+                        return;
+                    }
+
+                    const docToAdd = {
+                        id: 'go-' + Date.now(),
+                        type: this.newDoc.type,
+                        number: this.newDoc.number,
+                        title: this.newDoc.title,
+                        date: this.newDoc.date,
+                        department: this.newDoc.department,
+                        category: this.newDoc.category || 'General',
+                        fileSize: 'PDF',
+                        driveId: extractedId
+                    };
+
+                    this.documents.unshift(docToAdd);
+                    this.saveToStorage();
+                    this.filterDocs();
+                    this.selectDocument(docToAdd);
+
+                    // Reset Form
+                    this.newDoc = {
+                        type: 'GO',
+                        number: '',
+                        title: '',
+                        date: new Date().toISOString().split('T')[0],
+                        department: 'Finance Dept',
+                        category: '',
+                        driveInput: ''
+                    };
+
+                    this.showAddModal = false;
+                },
+
+                deleteDocument(id) {
+                    if (confirm('Are you sure you want to remove this document record from your archive?')) {
+                        this.documents = this.documents.filter(d => d.id !== id);
+                        this.saveToStorage();
+                        this.filterDocs();
+                        if (this.selectedDoc && this.selectedDoc.id === id) {
+                            this.selectedDoc = this.filteredDocs.length > 0 ? this.filteredDocs[0] : null;
+                        }
+                    }
+                },
+
+                saveToStorage() {
+                    localStorage.setItem('govt_orders_archive', JSON.stringify(this.documents));
+                },
+
+                resetFilters() {
+                    this.searchQuery = '';
+                    this.selectedCategory = 'All';
+                    this.selectedType = 'All';
+                    this.sortBy = 'date-desc';
+                    this.filterDocs();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
